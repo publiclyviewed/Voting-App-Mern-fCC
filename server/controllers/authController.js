@@ -54,32 +54,37 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { username, password } = req.body;
 
+  // Basic validation
   if (!username || !password) {
-    return res.status(400).json({ message: 'Please enter all fields' });
+    return res.status(400).json({ message: 'Please enter all fields.' });
   }
 
   try {
-    // Check if user exists
-    const user = await User.findOne({ username });
+    // Find user by username, explicitly select password
+    const user = await User.findOne({ username }).select('+password');
+
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Compare entered password with hashed password
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
+    // Check if password matches
+    // Ensure password is passed correctly and user.password is available
+    if (!(await user.matchPassword(password))) { // This is line 69
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // If credentials match, send success response with JWT
+    // If credentials are valid, generate token
+    const token = generateToken(user._id);
+
     res.status(200).json({
       _id: user._id,
       username: user.username,
-      token: generateToken(user._id), // Send JWT token
+      token,
     });
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error during login' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
