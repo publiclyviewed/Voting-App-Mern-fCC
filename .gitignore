@@ -4,3 +4,5 @@
 
 # Environment variables
 /server/.env
+
+client/build/

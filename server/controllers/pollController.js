@@ -83,14 +83,33 @@ const getMyPolls = async (req, res) => {
 // @desc    Vote on a poll
 // @route   POST /api/polls/:id/vote
 // @access  Public (Authenticated or Unauthenticated Users)
+// server/controllers/pollController.js
+
+// ... (keep existing imports and other functions) ...
+
+// @desc    Vote on a poll
+// @route   POST /api/polls/:id/vote
+// @access  Public (Authenticated or Unauthenticated Users)
 const voteOnPoll = async (req, res) => {
-  const { optionIndex } = req.body; // Expects the index of the option to vote for
+  const { optionIndex } = req.body;
+  const userId = req.user?._id; // Get user ID from req.user (if authenticated)
+  const userIp = req.ip; // Get user's IP address
 
   try {
     const poll = await Poll.findById(req.params.id);
 
     if (!poll) {
       return res.status(404).json({ message: 'Poll not found.' });
+    }
+
+    // Check if user has already voted (authenticated)
+    if (userId && poll.votedBy.includes(userId)) {
+      return res.status(400).json({ message: 'You have already voted on this poll.' });
+    }
+
+    // Check if IP has already voted (unauthenticated)
+    if (!userId && poll.votedIPs.includes(userIp)) {
+      return res.status(400).json({ message: 'You have already voted on this poll from this IP address.' });
     }
 
     // Basic validation for optionIndex
@@ -101,6 +120,13 @@ const voteOnPoll = async (req, res) => {
     // Increment the vote count for the selected option
     poll.options[optionIndex].votes += 1;
 
+    // Record the voter
+    if (userId) {
+      poll.votedBy.push(userId); // Add authenticated user's ID
+    } else {
+      poll.votedIPs.push(userIp); // Add unauthenticated user's IP
+    }
+
     // Save the updated poll
     await poll.save();
 
@@ -110,6 +136,8 @@ const voteOnPoll = async (req, res) => {
     res.status(500).json({ message: 'Server error recording vote.' });
   }
 };
+
+
 
 // @desc    Add a new option to an existing poll
 // @route   PUT /api/polls/:id/add-option

@@ -4,11 +4,9 @@ import { useParams } from 'react-router-dom';
 import { getPollById, voteOnPoll as voteOnPollApi, addOptionToPoll as addOptionToPollApi } from '../api/polls';
 import { useAuth } from '../context/AuthContext';
 
-// Import Chart.js components
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
-// Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -19,19 +17,36 @@ ChartJS.register(
 );
 
 const SinglePollPage = () => {
-  const { id } = useParams(); // Get poll ID from URL
-  const { currentUser, isLoading: authLoading } = useAuth(); // Get current user
+  const { id } = useParams();
+  const { currentUser, isLoading: authLoading } = useAuth();
   const [poll, setPoll] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
   const [voteSuccess, setVoteSuccess] = useState('');
-  const [showResults, setShowResults] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false); // NEW STATE: To track if current user/session has voted
   const [newOptionText, setNewOptionText] = useState('');
   const [addOptionError, setAddOptionError] = useState('');
   const [addOptionSuccess, setAddOptionSuccess] = useState('');
 
   const isCreator = currentUser && poll && currentUser._id === poll.createdBy._id;
+
+  // Function to check if the current user/IP has voted
+  const checkHasVoted = (currentPoll, user) => {
+    if (!currentPoll) return false;
+
+    // For authenticated users, check votedBy array
+    if (user && user._id) {
+      return currentPoll.votedBy.includes(user._id);
+    }
+
+    // For unauthenticated users, use a simple localStorage flag for this browser instance.
+    // This is less robust than backend IP tracking, but provides a client-side immediate check.
+    // The backend will perform the ultimate IP check.
+    const votedPolls = JSON.parse(localStorage.getItem('votedPolls') || '{}');
+    return votedPolls[currentPoll._id] === true;
+  };
+
 
   useEffect(() => {
     const fetchPoll = async () => {
@@ -40,10 +55,8 @@ const SinglePollPage = () => {
         setIsLoading(true);
         const data = await getPollById(id);
         setPoll(data);
-        // If there are votes already, show results by default or if user previously voted (more complex)
-        // For simplicity, let's check if poll has any votes initially to show results
-        const hasVotes = data.options.some(option => option.votes > 0);
-        setShowResults(hasVotes); // Show results if there are existing votes
+        // Check vote status immediately after fetching poll data
+        setHasVoted(checkHasVoted(data, currentUser)); // Pass data and currentUser
       } catch (err) {
         setError(err || 'Failed to load poll.');
         console.error('Fetch Single Poll Error:', err);
@@ -52,11 +65,15 @@ const SinglePollPage = () => {
       }
     };
     fetchPoll();
-  }, [id, voteSuccess, addOptionSuccess]); // Re-fetch when ID changes or after vote/add option
+  }, [id, voteSuccess, addOptionSuccess, currentUser]); // Re-fetch when currentUser changes as well
 
   const handleVote = async () => {
     if (selectedOptionIndex === null) {
       setError('Please select an option to vote.');
+      return;
+    }
+    if (hasVoted) { // Double check on client side
+      setError('You have already voted on this poll.');
       return;
     }
 
@@ -64,10 +81,18 @@ const SinglePollPage = () => {
       setError('');
       setVoteSuccess('');
       const response = await voteOnPollApi(id, selectedOptionIndex);
-      setPoll(response.poll); // Update poll data with new votes
+      setPoll(response.poll);
       setVoteSuccess('Vote recorded successfully!');
-      setShowResults(true); // Show results after voting
-      setSelectedOptionIndex(null); // Reset selection
+      setHasVoted(true); // Set hasVoted to true after successful vote
+
+      // For unauthenticated users, set a flag in localStorage
+      if (!currentUser) {
+        const votedPolls = JSON.parse(localStorage.getItem('votedPolls') || '{}');
+        votedPolls[id] = true;
+        localStorage.setItem('votedPolls', JSON.stringify(votedPolls));
+      }
+
+      setSelectedOptionIndex(null);
     } catch (err) {
       setError(err || 'Failed to record vote. Please try again.');
       console.error('Vote Error:', err);
@@ -105,10 +130,8 @@ const SinglePollPage = () => {
     return <div style={styles.notFound}>Poll not found.</div>;
   }
 
-  // Calculate total votes for results
   const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
 
-  // Prepare data for Chart.js
   const chartData = {
     labels: poll.options.map(option => option.text),
     datasets: [
@@ -140,7 +163,7 @@ const SinglePollPage = () => {
     responsive: true,
     plugins: {
       legend: {
-        display: false, // We usually don't need a legend for a single dataset bar chart
+        display: false,
       },
       title: {
         display: true,
@@ -154,7 +177,7 @@ const SinglePollPage = () => {
       y: {
         beginAtZero: true,
         ticks: {
-          stepSize: 1, // Ensure y-axis shows whole numbers for votes
+          stepSize: 1,
         }
       },
     },
@@ -167,8 +190,10 @@ const SinglePollPage = () => {
 
       {error && <p style={styles.errorText}>{error}</p>}
       {voteSuccess && <p style={styles.successText}>{voteSuccess}</p>}
+      {hasVoted && !voteSuccess && <p style={styles.infoText}>You have already voted on this poll.</p>} {/* NEW: Display message if already voted */}
 
-      {!showResults ? (
+
+      {!hasVoted ? ( // NEW: Conditionally render voting section
         <div style={styles.optionsContainer}>
           {poll.options.map((option, index) => (
             <div key={index} style={styles.optionItem}>
@@ -180,22 +205,21 @@ const SinglePollPage = () => {
                 checked={selectedOptionIndex === index}
                 onChange={() => setSelectedOptionIndex(index)}
                 style={styles.radioInput}
+                disabled={hasVoted} // NEW: Disable radio buttons if already voted
               />
               <label htmlFor={`option-${index}`} style={styles.radioLabel}>{option.text}</label>
             </div>
           ))}
-          <button onClick={handleVote} style={styles.voteButton}>Vote</button>
-          <button onClick={() => setShowResults(true)} style={styles.showResultsButton}>Show Results</button>
+          <button onClick={handleVote} style={styles.voteButton} disabled={hasVoted}>Vote</button> {/* NEW: Disable vote button */}
+          <button onClick={() => setHasVoted(true)} style={styles.showResultsButton}>Show Results</button> {/* Changed from setShowResults to setHasVoted to directly show results */}
         </div>
       ) : (
         <div style={styles.resultsContainer}>
           <h3>Results:</h3>
-          {/* Bar Chart Component */}
           <div style={styles.chartContainer}>
             <Bar data={chartData} options={chartOptions} />
           </div>
 
-          {/* Textual results for accessibility/detail */}
           <div style={styles.textualResults}>
             {poll.options.map((option, index) => (
               <div key={index} style={styles.resultItem}>
@@ -209,7 +233,8 @@ const SinglePollPage = () => {
               </div>
             ))}
           </div>
-          <button onClick={() => setShowResults(false)} style={styles.backToVoteButton}>Back to Vote</button>
+          {/* We only allow going back to vote if they haven't voted yet, and we are just showing results without voting */}
+          {!hasVoted && <button onClick={() => setHasVoted(false)} style={styles.backToVoteButton}>Back to Vote</button>}
         </div>
       )}
 
@@ -323,10 +348,10 @@ const styles = {
   },
   chartContainer: {
     width: '100%',
-    height: 'auto', // Or a fixed height like '300px'
+    height: 'auto',
     marginBottom: '20px',
   },
-  textualResults: { // Added for the textual representation below the chart
+  textualResults: {
     marginTop: '15px',
     paddingTop: '15px',
     borderTop: '1px dashed #ddd',
@@ -402,6 +427,11 @@ const styles = {
   },
   successText: {
     color: 'green',
+    textAlign: 'center',
+    marginTop: '10px',
+  },
+  infoText: { // NEW STYLE for info message
+    color: '#007bff',
     textAlign: 'center',
     marginTop: '10px',
   }

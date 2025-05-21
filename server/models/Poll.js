@@ -11,7 +11,7 @@ const PollOptionSchema = new mongoose.Schema({
     type: Number,
     default: 0
   }
-}, { _id: false }); // _id: false means Mongoose won't create an _id for each option subdocument
+}, { _id: false });
 
 const PollSchema = new mongoose.Schema({
   question: {
@@ -30,14 +30,23 @@ const PollSchema = new mongoose.Schema({
     }
   },
   createdBy: {
-    type: mongoose.Schema.Types.ObjectId, // This will store the MongoDB _id of the User who created the poll
-    ref: 'User', // References the 'User' model
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true
   },
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  // --- NEW FIELDS FOR VOTE TRACKING ---
+  votedBy: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  ],
+  // For unauthenticated users, a simple IP-based tracking (less reliable)
+  votedIPs: [String]
 });
 
 module.exports = mongoose.model('Poll', PollSchema);
