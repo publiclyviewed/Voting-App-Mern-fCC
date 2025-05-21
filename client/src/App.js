@@ -7,7 +7,9 @@ import { useAuth } from './context/AuthContext'; // Import useAuth hook
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage'; // Protected route example
+import DashboardPage from './pages/DashboardPage';
+import PollListPage from './pages/PollListPage';     // Import PollListPage
+import SinglePollPage from './pages/SinglePollPage'; // Import SinglePollPage
 
 // Basic layout/navbar (optional for now, we can add a proper one later)
 const Header = () => {
@@ -16,17 +18,20 @@ const Header = () => {
     <header style={styles.header}>
       <h1 style={styles.logo}><a href="/" style={styles.logoLink}>Voting App</a></h1>
       <nav>
-        {currentUser ? (
-          <ul style={styles.navList}>
-            <li style={styles.navItem}><a href="/dashboard" style={styles.navLink}>Dashboard</a></li>
-            <li style={styles.navItem}><button onClick={logout} style={styles.navButton}>Logout</button></li>
-          </ul>
-        ) : (
-          <ul style={styles.navList}>
-            <li style={styles.navItem}><a href="/login" style={styles.navLink}>Login</a></li>
-            <li style={styles.navItem}><a href="/register" style={styles.navLink}>Register</a></li>
-          </ul>
-        )}
+        <ul style={styles.navList}>
+          <li style={styles.navItem}><a href="/polls" style={styles.navLink}>All Polls</a></li> {/* Link to all polls */}
+          {currentUser ? (
+            <>
+              <li style={styles.navItem}><a href="/dashboard" style={styles.navLink}>Dashboard</a></li>
+              <li style={styles.navItem}><button onClick={logout} style={styles.navButton}>Logout</button></li>
+            </>
+          ) : (
+            <>
+              <li style={styles.navItem}><a href="/login" style={styles.navLink}>Login</a></li>
+              <li style={styles.navItem}><a href="/register" style={styles.navLink}>Register</a></li>
+            </>
+          )}
+        </ul>
       </nav>
     </header>
   );
@@ -47,12 +52,14 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <Router>
-      <Header /> {/* Add the header */}
+      <Header />
       <main style={styles.mainContent}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/polls" element={<PollListPage />} /> {/* Route for all polls */}
+          <Route path="/poll/:id" element={<SinglePollPage />} /> {/* Route for single poll */}
           {/* Protected Route for Dashboard */}
           <Route
             path="/dashboard"
@@ -62,7 +69,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Add more routes here for polls, etc. */}
         </Routes>
       </main>
     </Router>
