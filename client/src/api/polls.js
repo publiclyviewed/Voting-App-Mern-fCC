@@ -6,10 +6,11 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Create an Axios instance for poll requests
 const pollsApi = axios.create({
-  baseURL: `${API_URL}/polls`,
+  baseURL: API_URL, // CHANGE: Use API_URL directly, it now already contains '/api'
+  withCredentials: true, // ADD THIS: Crucial for sending cookies/auth headers with cross-origin requests
 });
 
-// Interceptor to add the authorization token to requests
+// Interceptor to add the authorization token to requests (already good)
 pollsApi.interceptors.request.use((config) => {
   const user = getCurrentUser(); // Get user data from localStorage
   if (user && user.token) {
@@ -25,7 +26,8 @@ pollsApi.interceptors.request.use((config) => {
 // Create a new poll (Private)
 export const createPoll = async (question, options) => {
   try {
-    const response = await pollsApi.post('/', { question, options });
+    // CHANGE: The full path is now /api/polls/, so here it's just /polls
+    const response = await pollsApi.post('/polls', { question, options });
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -35,7 +37,8 @@ export const createPoll = async (question, options) => {
 // Get all polls (Public)
 export const getAllPolls = async () => {
   try {
-    const response = await pollsApi.get('/');
+    // CHANGE: The full path is now /api/polls/, so here it's just /polls
+    const response = await pollsApi.get('/polls');
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -45,7 +48,8 @@ export const getAllPolls = async () => {
 // Get a single poll by ID (Public)
 export const getPollById = async (id) => {
   try {
-    const response = await pollsApi.get(`/${id}`);
+    // CHANGE: The full path is now /api/polls/:id, so here it's just /polls/:id
+    const response = await pollsApi.get(`/polls/${id}`);
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -55,7 +59,8 @@ export const getPollById = async (id) => {
 // Get polls created by the authenticated user (Private)
 export const getMyPolls = async () => {
   try {
-    const response = await pollsApi.get('/my-polls');
+    // CHANGE: The full path is now /api/polls/my-polls, so here it's just /polls/my-polls
+    const response = await pollsApi.get('/polls/my-polls');
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -65,7 +70,8 @@ export const getMyPolls = async () => {
 // Vote on a poll (Public)
 export const voteOnPoll = async (pollId, optionIndex) => {
   try {
-    const response = await pollsApi.post(`/${pollId}/vote`, { optionIndex });
+    // CHANGE: The full path is now /api/polls/:pollId/vote, so here it's just /polls/:pollId/vote
+    const response = await pollsApi.post(`/polls/${pollId}/vote`, { optionIndex });
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -75,7 +81,8 @@ export const voteOnPoll = async (pollId, optionIndex) => {
 // Add a new option to an existing poll (Private - owner only)
 export const addOptionToPoll = async (pollId, newOptionText) => {
   try {
-    const response = await pollsApi.put(`/${pollId}/add-option`, { newOptionText });
+    // CHANGE: The full path is now /api/polls/:pollId/add-option, so here it's just /polls/:pollId/add-option
+    const response = await pollsApi.put(`/polls/${pollId}/add-option`, { newOptionText });
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
@@ -85,7 +92,8 @@ export const addOptionToPoll = async (pollId, newOptionText) => {
 // Delete a poll (Private - owner only)
 export const deletePoll = async (pollId) => {
   try {
-    const response = await pollsApi.delete(`/${pollId}`);
+    // CHANGE: The full path is now /api/polls/:pollId, so here it's just /polls/:pollId
+    const response = await pollsApi.delete(`/polls/${pollId}`);
     return response.data;
   } catch (error) {
     throw error.response?.data?.message || error.message;
